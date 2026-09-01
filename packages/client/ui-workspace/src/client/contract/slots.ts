@@ -96,6 +96,8 @@ export type WorkspaceBrowserInjected = {
      * saw. Select the field the surface needs (`info => info.home`).
      */
     hostInfo: HostObservable<RemoteHostFacts>
+    /** Optional permanent-deletion capability contributed by a Profile plugin. */
+    sessionDeletion: HostObservable<boolean>
   }
   /**
    * Start a New Session in a Workspace: reuse-or-create its blank session and
@@ -134,6 +136,8 @@ export type WorkspaceBrowserInjected = {
    * session clears the selection into the New Session view state.
    */
   archiveSession: (sessionId: SessionId) => Promise<void>
+  /** Permanently delete a Session; exposed only while its Profile plugin is active. */
+  deleteSession: (sessionId: SessionId) => Promise<void>
   /**
    * Reorder a session inside its Workspace account (DOM-insertBefore
    * semantics: omitted anchor appends to the end). The view refreshes from

@@ -1,0 +1,24 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "lib/types",
+    "tsBuildInfoFile": "lib/tsconfig.host.tsbuildinfo"
+  },
+  "files": [
+    "src/index.ts",
+    "src/invariant.ts",
+    "src/types.ts"
+  ],
+  "references": [
+    { "path": "../../../vendor/cordis" },
+    { "path": "../../api/session-controller/tsconfig.host.json" },
+    { "path": "../../attachment/attachment" },
+    { "path": "../../core/agent" },
+    { "path": "../../core/session" },
+    { "path": "../../runtime-diagnostics/invariants" },
+    { "path": "../../session/session-persistence" },
+    { "path": "../../typert/protocol" },
+    { "path": "../../workspace/workspace" }
+  ]
+}

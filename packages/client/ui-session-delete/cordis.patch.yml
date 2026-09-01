@@ -1,0 +1,6 @@
+# Optional Web Profile bundle: exposes permanent Session deletion through the
+# session-delete Host Remote. The workspace UI discovers the client service
+# reactively, so this entry also works when added after the Web bundle.
+- insert:
+    - id: session-delete
+      name: '@deepseek-ai/dsh-client-ui-session-delete'

@@ -1,6 +1,7 @@
 /** Local durable attachment backend rooted below `DSH_HOME`. @module @deepseek-ai/dsh-attachment-local */
 
 import { join, resolve } from 'node:path'
+import { unlink } from 'node:fs/promises'
 import { Context } from '@deepseek-ai/cordis'
 import z from '@deepseek-ai/schemastery'
 import { AttachmentStore } from '@deepseek-ai/dsh-attachment'
@@ -216,6 +217,16 @@ export class LocalAttachmentStore extends AttachmentStore {
 
   async readImage(ref: ImageAttachmentRef, signal?: AbortSignal): Promise<StoredImageAttachment> {
     return readImageFile(this.root, ref, signal)
+  }
+
+  override async deleteImage(ref: ImageAttachmentRef): Promise<boolean> {
+    try {
+      await unlink(normalizedImagePath(this.root, ref))
+      return true
+    } catch (error: unknown) {
+      if (error instanceof Error && 'code' in error && error.code === 'ENOENT') return false
+      throw error
+    }
   }
 
   override imageHostPath(ref: ImageAttachmentRef): string {

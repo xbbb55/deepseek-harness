@@ -209,6 +209,10 @@ export class JsonlSessionPersistence extends SessionPersistence implements Persi
     return this.coordinator.readFrom(id, fromSeq, signal)
   }
 
+  override delete(id: SessionId): Promise<boolean> {
+    return this.coordinator.delete(id)
+  }
+
   // One method serves both public `list` and the backend hook; delegating it to
   // the coordinator would call this hook recursively.
 
@@ -483,6 +487,15 @@ export class JsonlSessionPersistence extends SessionPersistence implements Persi
     }
     signal?.throwIfAborted()
     return snapshots
+  }
+
+  /** Permanently remove the exact session directory and its JSONL artifact. */
+  async deleteArtifact(id: SessionId): Promise<boolean> {
+    await this.ensureRootEncoding()
+    const path = await this.findLog(id)
+    if (path === undefined) return false
+    await rm(dirname(path), { recursive: true, force: true })
+    return true
   }
 
   private async listArtifacts(signal?: AbortSignal): Promise<Array<{ header: SessionHeader; path: string }>> {

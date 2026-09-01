@@ -13,7 +13,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import clsx from 'clsx'
 import {
   Button, IconCloseFill14, IconPersonalizationOutline16,
-  IconProjectAddOutline16, IconSearchOutline16, Menu, Modal, Tooltip,
+  IconProjectAddOutline16, IconSearchOutline16, IconWarningOutline16,
+  Menu, Modal, Toast, Tooltip,
 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type {
   SessionListState, SessionSearchResultItem,
@@ -260,6 +261,8 @@ type SessionTreeProps = Pick<
   onSessionRename: (sessionId: SessionNode['id'], currentTitle: string) => void
   /** Archive a session (row menu action; the row disappears on the state echo). */
   onSessionArchive: (sessionId: SessionNode['id']) => void
+  /** Permanent deletion action supplied by the optional plugin. */
+  onSessionDelete?: ((sessionId: SessionNode['id']) => void) | undefined
   /** Session order behavior: fixed after edits, or additionally promoted by user activity. */
   orderBy: SessionOrderBy
 }
@@ -267,7 +270,7 @@ type SessionTreeProps = Pick<
 /** The scrolling session tree; unmounting drops the sessions subscription and expand-all state. */
 function SessionTree({
   useSessions, useSessionPendingInteraction, startSession, open, forkSession, workspaces, archivedSessionIds,
-  onRenameRequest, onDeleteRequest, onSessionRename, onSessionArchive,
+  onRenameRequest, onDeleteRequest, onSessionRename, onSessionArchive, onSessionDelete,
   insertWorkspaceBefore, insertSessionBefore, orderBy,
   groupExpansion, setGroupExpanded,
   sessionOrderByAccount, sessionUpdatedAtByAccount, syncSessionOrderAccount, setSessionOrder, home, t,
@@ -564,6 +567,7 @@ function SessionTree({
                     onRename={onSessionRename}
                     onFork={forkSession}
                     onArchive={onSessionArchive}
+                    onDelete={onSessionDelete}
                     drag={dragProps}
                     t={t}
                   />
@@ -592,7 +596,7 @@ function SessionTree({
 
 /** The flat "In one list" body: every session is one draggable top-level row. */
 function FlatList({
-  useSessions, useSessionPendingInteraction, open, forkSession, onSessionRename, onSessionArchive,
+  useSessions, useSessionPendingInteraction, open, forkSession, onSessionRename, onSessionArchive, onSessionDelete,
   archivedSessionIds,
   orderBy, sessionOrderByAccount, sessionUpdatedAtByAccount, syncSessionOrderAccount, setSessionOrder, t,
 }: Pick<
@@ -603,6 +607,7 @@ function FlatList({
   | 'forkSession'
   | 'onSessionRename'
   | 'onSessionArchive'
+  | 'onSessionDelete'
   | 'archivedSessionIds'
   | 'orderBy'
   | 'sessionOrderByAccount'
@@ -683,6 +688,7 @@ function FlatList({
               onRename={onSessionRename}
               onFork={forkSession}
               onArchive={onSessionArchive}
+              onDelete={onSessionDelete}
               flat
               drag={{
                 start: () => {
@@ -815,12 +821,14 @@ export function WorkspaceBrowser({
   deleteWorkspace,
   insertWorkspaceBefore,
   archiveSession,
+  deleteSession,
   insertSessionBefore,
   createWorkspace,
   searchSessions,
   searchResultLimit,
   useDirectoryFlow,
   useHostInfo,
+  useSessionDeletion,
   renderSlot,
   t,
 }: WorkspaceBrowserProps) {
@@ -831,6 +839,7 @@ export function WorkspaceBrowser({
   // Live occupancy of this surface's directory-flow hole (the same source the
   // flow reads): a composition without a picking affordance can add nothing.
   const directoryFlowAvailable = useDirectoryFlow(occupied => occupied)
+  const sessionDeletionAvailable = useSessionDeletion(available => available)
   const groupBy = useStore(s => s.groupBy)
   const orderBy = useStore(s => s.orderBy)
   const groupExpansion = useStore(s => s.groupExpansion)
@@ -888,6 +897,8 @@ export function WorkspaceBrowser({
   const [wsPickerOpen, setWsPickerOpen] = useState(false)
   const wsPlusRef = useRef<HTMLButtonElement>(null)
   const composingRef = useRef(false)
+  const [sessionDeleteNotice, setSessionDeleteNotice] = useState<{ seq: number; text: string } | null>(null)
+  const sessionDeleteNoticeSeq = useRef(0)
 
   // Rail search = expand + land in the search box: the flag arms before the
   // expand request; once the shell flips wide the input mounts and takes focus.
@@ -1029,6 +1040,17 @@ export function WorkspaceBrowser({
   const onSessionArchive = (sessionId: SessionNode['id']) => {
     archiveSession(sessionId).catch((reason: unknown) => {
       console.warn('session archive rejected:', reason)
+    })
+  }
+
+  const onSessionDelete = !sessionDeletionAvailable ? undefined : (sessionId: SessionNode['id']) => {
+    if (typeof window !== 'undefined' && !window.confirm(t('delete.session.confirm'))) return
+    deleteSession(sessionId).catch((reason: unknown) => {
+      sessionDeleteNoticeSeq.current += 1
+      setSessionDeleteNotice({
+        seq: sessionDeleteNoticeSeq.current,
+        text: reason instanceof Error ? reason.message : String(reason),
+      })
     })
   }
 
@@ -1221,6 +1243,7 @@ export function WorkspaceBrowser({
                 useSessions={useSessions} useSessionPendingInteraction={useSessionPendingInteraction}
                 open={open} forkSession={forkSession}
                 onSessionRename={onSessionRename} onSessionArchive={onSessionArchive}
+                onSessionDelete={onSessionDelete}
                 archivedSessionIds={archivedSessionIds}
                 orderBy={orderBy}
                 sessionOrderByAccount={sessionOrderByAccount}
@@ -1236,6 +1259,7 @@ export function WorkspaceBrowser({
                 useSessionPendingInteraction={useSessionPendingInteraction}
                 onSessionRename={onSessionRename}
                 onSessionArchive={onSessionArchive}
+                onSessionDelete={onSessionDelete}
                 forkSession={forkSession}
                 workspaces={workspaces}
                 groupExpansion={groupExpansion}
@@ -1356,6 +1380,15 @@ export function WorkspaceBrowser({
         {deleting && <div className={css.deleteStatus} role="status">{t('delete.pending')}</div>}
         {deleteError !== null && <div className={css.renameError} role="alert">{deleteError}</div>}
       </Modal>
+      {sessionDeleteNotice !== null && (
+        <Toast
+          key={sessionDeleteNotice.seq}
+          text={sessionDeleteNotice.text}
+          icon={<IconWarningOutline16 />}
+          holdMs={6000}
+          onDone={() => { setSessionDeleteNotice(null) }}
+        />
+      )}
     </div>
   )
 }

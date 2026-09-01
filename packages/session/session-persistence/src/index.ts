@@ -280,6 +280,12 @@ export abstract class SessionPersistence extends Service {
    * @returns one header and opaque revision per materialized session without loading full logs.
    */
   abstract listSnapshots(signal?: AbortSignal): Promise<SessionPersistenceSnapshot[]>
+
+  /** Permanently remove one stored session artifact. Returns false when absent. */
+  delete(id: SessionId): Promise<boolean> {
+    void id
+    return Promise.reject(new Error('this session persistence backend does not support deletion'))
+  }
 }
 
 export default SessionPersistence

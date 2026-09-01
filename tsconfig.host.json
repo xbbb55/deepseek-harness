@@ -158,6 +158,7 @@
     { "path": "./packages/session/session-checkpoint-policy" },
     { "path": "./packages/session/session-log-deepseek" },
     { "path": "./packages/session/session-persistence-jsonl" },
+    { "path": "./packages/client/ui-session-delete/tsconfig.host.json" },
     { "path": "./packages/session/session-projection" },
     { "path": "./packages/session/session-projection-cache" },
     { "path": "./packages/session/session-stats" },

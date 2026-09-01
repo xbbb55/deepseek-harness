@@ -110,6 +110,11 @@ export abstract class AttachmentStore extends Service {
    */
   abstract readImage(ref: ImageAttachmentRef, signal?: AbortSignal): Promise<StoredImageAttachment>
 
+  /** Permanently remove one provider-owned image object when supported. */
+  deleteImage(_ref: ImageAttachmentRef): Promise<boolean> {
+    return Promise.resolve(false)
+  }
+
   /**
    * Locate the provider-owned normalized object in the harness host filesystem.
    * @param ref - durable normalized attachment reference.

@@ -202,6 +202,9 @@ export interface PersistenceBackend<TornMarker = unknown> {
    */
   list(signal?: AbortSignal): Promise<SessionHeader[]>
 
+  /** Permanently remove one stored artifact, returning false when absent. */
+  deleteArtifact?(id: SessionId): Promise<boolean>
+
   /**
    * Optional side-effect-free artifact locator, used to point refusal
    * diagnostics ({@link SessionFormatUnsupportedError}) at the raw log.
@@ -918,6 +921,27 @@ export class PersistenceCoordinator<TornMarker = unknown> {
     const retired = Promise.resolve(this.retirements.get(id))
     const waited = signal === undefined ? retired : observeQueuedAbort(retired, signal, () => false)
     return waited.then(() => this.serialize(id, () => this.readFromCore(id, fromSeq, signal), signal))
+  }
+
+  /** Permanently delete one cold session after writes and reservations settle. */
+  async delete(id: SessionId): Promise<boolean> {
+    await this.waitForRetirement(id)
+    return this.serialize(id, async () => {
+      if (this.ctx.sessions.get(id) !== undefined || this.liveHasId(id)) {
+        throw new Error(`cannot delete session "${id}" while it is live`)
+      }
+      this.preparations.invalidate(id)
+      this.states.delete(id)
+      if (this.backend.deleteArtifact === undefined) {
+        throw new Error('this session persistence backend does not support deletion')
+      }
+      return this.backend.deleteArtifact(id)
+    })
+  }
+
+  private liveHasId(id: SessionId): boolean {
+    for (const session of this.live.keys()) if (session.id === id) return true
+    return false
   }
 
   private async readFromCore(

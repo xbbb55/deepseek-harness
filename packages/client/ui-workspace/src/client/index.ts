@@ -48,6 +48,13 @@ declare module '@deepseek-ai/dsh-client-ui-slots' {
   }
 }
 
+declare module '@deepseek-ai/cordis' {
+  interface Events {
+    /** Optional Profile bundles notify the mounted browser of capability changes. */
+    'session-deletion/changed'(): void
+  }
+}
+
 /** Dictionary namespace owned by this plugin. */
 const NS = 'workspace'
 
@@ -62,6 +69,10 @@ const NS = 'workspace'
 export const inject = [
   'slots', 'sessions', 'workspaces', 'locale', 'remote', 'remote.directoryPicker',
 ]
+
+interface SessionDeletionService {
+  delete(sessionId: import('@deepseek-ai/dsh-session/types').SessionId): Promise<void>
+}
 
 /**
  * Register the browser and picker once their slot declarations are on the
@@ -94,6 +105,12 @@ export function apply(ctx: Context): void {
     getSnapshot: () => ctx.remote.$host,
     subscribe: listener => ctx.on('connection/reset', listener),
   }
+  // Optional bundles load after the built-in Web entries. Keep this source
+  // reactive so the menu appears without relying on apply order.
+  const sessionDeletion: HostObservable<boolean> = {
+    getSnapshot: () => ctx.get('sessionDeletion') !== undefined,
+    subscribe: listener => ctx.on('session-deletion/changed', listener),
+  }
   const pickerFlowSource = flowSource('conversation.hero.workspace.directoryFlow')
   const browserInjected = (): WorkspaceBrowserInjected => ({
     // Explicit group actions keep their target; unscoped New Session inherits
@@ -123,11 +140,16 @@ export function apply(ctx: Context): void {
       await workspaces.insertBefore(workspaceId, beforeWorkspaceId)
     },
     archiveSession: async (sessionId) => { await uiWorkspace.archiveSession(sessionId) },
+    deleteSession: async (sessionId) => {
+      const deletion = ctx.get('sessionDeletion') as SessionDeletionService | undefined
+      if (deletion === undefined) throw new Error('会话删除插件尚未就绪，请稍后重试。')
+      await deletion.delete(sessionId)
+    },
     insertSessionBefore: async (workspaceId, sessionId, beforeSessionId) => {
       await workspaces.insertSessionBefore(workspaceId, sessionId, beforeSessionId)
     },
     createWorkspace: input => workspaces.create(input),
-    hooks: { directoryFlow: browserFlowSource, hostInfo },
+    hooks: { directoryFlow: browserFlowSource, hostInfo, sessionDeletion },
   })
   const pickerInjected = (): WorkspacePickerInjected => ({
     createWorkspace: input => workspaces.create(input),

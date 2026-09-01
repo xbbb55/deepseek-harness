@@ -80,11 +80,13 @@ function mount(overrides: Partial<WorkspaceBrowserProps> = {}) {
     renameWorkspace: vi.fn(async () => {}),
     deleteWorkspace: vi.fn(async () => {}),
     archiveSession: vi.fn(async () => {}),
+    deleteSession: vi.fn(async () => {}),
     insertWorkspaceBefore: vi.fn(async () => {}),
     insertSessionBefore: vi.fn(async () => {}),
     createWorkspace: vi.fn(async () => workspace('created', [])),
     useDirectoryFlow: bindSnapshotSelector({ getSnapshot: () => true, subscribe: () => () => {} }),
     useHostInfo: selector => selector({ home: undefined, isLoopback: true }),
+    useSessionDeletion: selector => selector(false),
     renderSlot: ((_name: string, owner: { open: boolean }) => (owner.open ? <div data-testid="directory-flow" /> : null)) as never,
     t,
     ...overrides,
@@ -429,6 +431,22 @@ describe('WorkspaceBrowser', () => {
     fireEvent.click(screen.getByRole('menuitem', { name: '单列表' }))
     expect(screen.getByText('kept-s')).toBeTruthy()
     expect(screen.queryByText('gone-s')).toBeNull()
+  })
+
+  it('shows permanent Session deletion only while the optional plugin capability is active', () => {
+    const b = mount({
+      useSessions: hook(sessionState([summary('alpha-s', 1)])),
+      useWorkspaces: hook(workspaceState([workspace('alpha', ['alpha-s'])])),
+    })
+    fireEvent.click(screen.getByText('alpha'))
+    const menu = screen.getByRole('button', { name: '会话“alpha-s”的操作' })
+    fireEvent.click(menu)
+    expect(screen.queryByRole('menuitem', { name: '永久删除会话' })).toBeNull()
+    fireEvent.click(menu)
+
+    rerender(b, { useSessionDeletion: selector => selector(true) })
+    fireEvent.click(menu)
+    expect(screen.getByRole('menuitem', { name: '永久删除会话' })).toBeTruthy()
   })
 
   it('logs and keeps the tree when the archive call rejects', async () => {
